@@ -1,2 +1,2 @@
-# Systemy-przetw.-multimedi-w
+# Systemy-przetw.-multimediow
 projekt
