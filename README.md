@@ -1,2 +1,2 @@
 # Systemy-przetw.-multimediow
-projekt
+string resonance module  
