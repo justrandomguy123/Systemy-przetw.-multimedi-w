@@ -5,15 +5,15 @@
  BEGIN_JUCE_PIP_METADATA
 
  name:             SKlavier
- version:          2.0.0
+ version:          1.0.0
  vendor:           JUCE
  website:          http://juce.com
- description:      Synthesiser with midi input.
+ description:      Synthesiser with computer keyboard input.
 
  dependencies:     juce_audio_basics, juce_audio_devices, juce_audio_formats,
-				   juce_audio_processors, juce_audio_utils, juce_core,
-				   juce_data_structures, juce_events, juce_graphics,
-				   juce_gui_basics, juce_gui_extra
+                   juce_audio_processors, juce_audio_utils, juce_core,
+                   juce_data_structures, juce_events, juce_graphics,
+                   juce_gui_basics, juce_gui_extra
  exporters:        xcode_mac, vs2017, linux_make
 
  type:             Component
@@ -131,10 +131,10 @@ public:
 	SynthAudioSource(MidiKeyboardState& keyState)
 		: keyboardState(keyState)
 	{
-		for (auto i = 0; i < 4; ++i)
+		for (auto i = 0; i < 4; ++i)                // [1]
 			synth.addVoice(new SineWaveVoice());
 
-		synth.addSound(new SineWaveSound());
+		synth.addSound(new SineWaveSound());       // [2]
 	}
 
 	void setUsingSineWaveSound()
@@ -144,8 +144,7 @@ public:
 
 	void prepareToPlay(int /*samplesPerBlockExpected*/, double sampleRate) override
 	{
-		synth.setCurrentPlaybackSampleRate(sampleRate);
-		midiCollector.reset(sampleRate); // [10]
+		synth.setCurrentPlaybackSampleRate(sampleRate); // [3]
 	}
 
 	void releaseResources() override {}
@@ -155,24 +154,16 @@ public:
 		bufferToFill.clearActiveBufferRegion();
 
 		MidiBuffer incomingMidi;
-		midiCollector.removeNextBlockOfMessages(incomingMidi, bufferToFill.numSamples); // [11]
-
 		keyboardState.processNextMidiBuffer(incomingMidi, bufferToFill.startSample,
-			bufferToFill.numSamples, true);
+			bufferToFill.numSamples, true);       // [4]
 
 		synth.renderNextBlock(*bufferToFill.buffer, incomingMidi,
-			bufferToFill.startSample, bufferToFill.numSamples);
-	}
-
-	MidiMessageCollector* getMidiCollector()
-	{
-		return &midiCollector;
+			bufferToFill.startSample, bufferToFill.numSamples); // [5]
 	}
 
 private:
 	MidiKeyboardState& keyboardState;
 	Synthesiser synth;
-	MidiMessageCollector midiCollector;
 };
 
 //==============================================================================
@@ -184,32 +175,10 @@ public:
 		: synthAudioSource(keyboardState),
 		keyboardComponent(keyboardState, MidiKeyboardComponent::horizontalKeyboard)
 	{
-		addAndMakeVisible(midiInputListLabel);
-		midiInputListLabel.setText("MIDI Input:", dontSendNotification);
-		midiInputListLabel.attachToComponent(&midiInputList, true);
-
-		auto midiInputs = MidiInput::getDevices();
-		addAndMakeVisible(midiInputList);
-		midiInputList.setTextWhenNoChoicesAvailable("No MIDI Inputs Enabled");
-		midiInputList.addItemList(midiInputs, 1);
-		midiInputList.onChange = [this] { setMidiInput(midiInputList.getSelectedItemIndex()); };
-
-		for (auto midiInput : midiInputs)
-		{
-			if (deviceManager.isMidiInputEnabled(midiInput))
-			{
-				setMidiInput(midiInputs.indexOf(midiInput));
-				break;
-			}
-		}
-
-		if (midiInputList.getSelectedId() == 0)
-			setMidiInput(0);
-
 		addAndMakeVisible(keyboardComponent);
 		setAudioChannels(0, 2);
 
-		setSize(600, 190);
+		setSize(600, 160);
 		startTimer(400);
 	}
 
@@ -220,8 +189,7 @@ public:
 
 	void resized() override
 	{
-		midiInputList.setBounds(200, 10, getWidth() - 210, 20);
-		keyboardComponent.setBounds(10, 40, getWidth() - 20, getHeight() - 50);
+		keyboardComponent.setBounds(10, 10, getWidth() - 20, getHeight() - 20);
 	}
 
 	void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override
@@ -246,31 +214,10 @@ private:
 		stopTimer();
 	}
 
-	void setMidiInput(int index)
-	{
-		auto list = MidiInput::getDevices();
-
-		deviceManager.removeMidiInputCallback(list[lastInputIndex], synthAudioSource.getMidiCollector());
-
-		auto newInput = list[index];
-
-		if (!deviceManager.isMidiInputEnabled(newInput))
-			deviceManager.setMidiInputEnabled(newInput, true);
-
-		deviceManager.addMidiInputCallback(newInput, synthAudioSource.getMidiCollector());
-		midiInputList.setSelectedId(index + 1, dontSendNotification);
-
-		lastInputIndex = index;
-	}
-
 	//==========================================================================
 	SynthAudioSource synthAudioSource;
 	MidiKeyboardState keyboardState;
 	MidiKeyboardComponent keyboardComponent;
-
-	ComboBox midiInputList;
-	Label midiInputListLabel;
-	int lastInputIndex = 0;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };
